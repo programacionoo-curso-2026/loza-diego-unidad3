@@ -2,12 +2,16 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
+	"sort"
+	"sync"
 )
 
-// Pregunta representa un ejercicio con su enunciado, sus 3 opciones y la solución correcta (A, B o C).
+// ---------- Preguntas ----------
+
 type Pregunta struct {
 	Pregunta string `json:"pregunta"`
 	OpcionA  string `json:"opcion_a"`
@@ -16,7 +20,6 @@ type Pregunta struct {
 	Solucion string `json:"solucion"`
 }
 
-// Aquí se parametriza el arreglo de preguntas.
 var preguntas = []Pregunta{
 	{
 		Pregunta: "for i &blank 0; i &lt; 10; i++",
@@ -33,6 +36,67 @@ var preguntas = []Pregunta{
 		Solucion: "A",
 	},
 }
+
+// ---------- Resultados (ranking en memoria) ----------
+
+type Resultado struct {
+	Nombre      string `json:"nombre"`
+	TiempoMs    int64  `json:"tiempo_ms"`
+	TiempoTexto string `json:"tiempo_texto"`
+}
+
+var (
+	mu         sync.Mutex
+	resultados []Resultado
+)
+
+func formatearTiempo(ms int64) string {
+	totalSeg := ms / 1000
+	min := totalSeg / 60
+	seg := totalSeg % 60
+	return fmt.Sprintf("%02d:%02d", min, seg)
+}
+
+func guardarResultadoHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "método no permitido", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var entrada struct {
+		Nombre   string `json:"nombre"`
+		TiempoMs int64  `json:"tiempo_ms"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&entrada); err != nil {
+		http.Error(w, "json inválido", http.StatusBadRequest)
+		return
+	}
+
+	nuevo := Resultado{
+		Nombre:      entrada.Nombre,
+		TiempoMs:    entrada.TiempoMs,
+		TiempoTexto: formatearTiempo(entrada.TiempoMs),
+	}
+
+	mu.Lock()
+	resultados = append(resultados, nuevo)
+	sort.Slice(resultados, func(i, j int) bool {
+		return resultados[i].TiempoMs < resultados[j].TiempoMs
+	})
+	mu.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+}
+
+func resultadosHandler(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	defer mu.Unlock()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resultados)
+}
+
+// ---------- Página ----------
 
 const pageTemplate = `<!DOCTYPE html>
 <html lang="es">
@@ -164,11 +228,17 @@ const pageTemplate = `<!DOCTYPE html>
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 14px;
+    gap: 10px;
   }
   #pantalla-final h2 {
     margin: 0;
     color: #333;
+  }
+  #tiempoFinal {
+    font-size: 20px;
+    color: #007acc;
+    font-weight: bold;
+    margin-bottom: 6px;
   }
   #listaFinal {
     width: 100%;
@@ -177,12 +247,41 @@ const pageTemplate = `<!DOCTYPE html>
     background: #f7f7f7;
     border-radius: 8px;
     padding: 16px 16px 16px 36px;
-    margin: 0;
+    margin: 0 0 10px 0;
   }
   #listaFinal li {
     font-family: 'Courier New', monospace;
     margin-bottom: 8px;
     color: #333;
+  }
+  #tituloRanking {
+    margin: 10px 0 0 0;
+    color: #333;
+  }
+  #ranking {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: left;
+    background: #f7f7f7;
+    border-radius: 8px;
+    padding: 12px 20px;
+    margin: 0;
+    list-style: none;
+  }
+  #ranking li {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 16px;
+    color: #333;
+  }
+  #ranking li:last-child {
+    border-bottom: none;
+  }
+  #ranking li.mejor {
+    font-weight: bold;
+    color: #4caf50;
   }
 </style>
 </head>
@@ -210,7 +309,10 @@ const pageTemplate = `<!DOCTYPE html>
     <!-- Pantalla 3: final -->
     <div id="pantalla-final">
       <h2 id="tituloFinal"></h2>
-      <ul id="listaFinal"></ul>
+      <div id="tiempoFinal"></div>
+      <!--ul id="listaFinal"></ul-->
+      <h3 id="tituloRanking">Ranking (menor tiempo primero)</h3>
+      <ol id="ranking"></ol>
     </div>
 
   </div>
@@ -219,6 +321,7 @@ const pageTemplate = `<!DOCTYPE html>
     const preguntas = {{.Preguntas}};
     let nombre = '';
     let indice = 0;
+    let inicioTimestamp = 0;
     const respondidas = [];
 
     function iniciar() {
@@ -228,6 +331,7 @@ const pageTemplate = `<!DOCTYPE html>
         return;
       }
       nombre = valor;
+      inicioTimestamp = Date.now();
       document.getElementById('pantalla-inicio').style.display = 'none';
       document.getElementById('pantalla-pregunta').style.display = 'flex';
       cargarPregunta(indice);
@@ -276,7 +380,7 @@ const pageTemplate = `<!DOCTYPE html>
           if (indice < preguntas.length) {
             cargarPregunta(indice);
           } else {
-            mostrarFinal();
+            finalizar();
           }
         }, 700);
       } else {
@@ -286,12 +390,25 @@ const pageTemplate = `<!DOCTYPE html>
       }
     }
 
-    function mostrarFinal() {
+    function formatearTiempo(ms) {
+      const totalSeg = Math.floor(ms / 1000);
+      const min = Math.floor(totalSeg / 60);
+      const seg = totalSeg % 60;
+      const pad = n => String(n).padStart(2, '0');
+      return pad(min) + ':' + pad(seg);
+    }
+
+    async function finalizar() {
       document.getElementById('pantalla-pregunta').style.display = 'none';
       document.getElementById('pantalla-final').style.display = 'flex';
+
+      const tiempoMs = Date.now() - inicioTimestamp;
+
       document.getElementById('tituloFinal').textContent =
         '¡Felicidades, ' + nombre + '!';
-
+      document.getElementById('tiempoFinal').textContent =
+        'Tu tiempo: ' + formatearTiempo(tiempoMs);
+      /*
       const lista = document.getElementById('listaFinal');
       lista.innerHTML = '';
       respondidas.forEach(texto => {
@@ -299,6 +416,34 @@ const pageTemplate = `<!DOCTYPE html>
         li.textContent = texto;
         lista.appendChild(li);
       });
+      */
+
+      // Guarda el resultado en el servidor
+      try {
+        await fetch('/api/resultado', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre: nombre, tiempo_ms: tiempoMs })
+        });
+      } catch (e) {
+        console.error('No se pudo guardar el resultado', e);
+      }
+
+      // Trae y muestra el ranking ya ordenado por el servidor
+      try {
+        const resp = await fetch('/api/resultados');
+        const datos = await resp.json();
+        const ranking = document.getElementById('ranking');
+        ranking.innerHTML = '';
+        datos.forEach((r, idx) => {
+          const li = document.createElement('li');
+          if (idx === 0) li.classList.add('mejor');
+          li.innerHTML = '<span>' + (idx + 1) + '. ' + r.nombre + '</span><span>' + r.tiempo_texto + '</span>';
+          ranking.appendChild(li);
+        });
+      } catch (e) {
+        console.error('No se pudo obtener el ranking', e);
+      }
     }
   </script>
 </body>
@@ -320,6 +465,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/", handler)
+	http.HandleFunc("/api/resultado", guardarResultadoHandler)
+	http.HandleFunc("/api/resultados", resultadosHandler)
 	log.Println("Servidor corriendo en http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
