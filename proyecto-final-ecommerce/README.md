@@ -159,3 +159,7 @@ Durante el desarrollo se trabajó con estructuras de datos, funciones, métodos 
 El proyecto demuestra cómo Go puede utilizarse para desarrollar servicios web eficientes y cómo estos servicios pueden convertirse en la base de aplicaciones modernas de comercio electrónico.
 
 Como mejora futura, se podrían incorporar bases de datos, interfaces gráficas, seguridad, sistemas de pago y tecnologías de inteligencia artificial.
+## Video demostrativo
+
+En el siguiente enlace se puede visualizar la demostración completa de las funcionalidades del Sistema de Gestión de E-Commerce:
+https://youtu.be/npZLD5Bxrsc
