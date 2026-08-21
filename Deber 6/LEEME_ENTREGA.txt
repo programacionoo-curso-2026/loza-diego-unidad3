@@ -1,0 +1,14 @@
+Taller 24 - Revision de Codigo
+Estudiante: Diego Loza
+
+Archivos principales para entregar:
+1. Informe_Taller24_Diego_Loza.docx
+2. Presentacion_Taller24_Diego_Loza.pptx
+3. evaluacion_docente.go
+
+Ademas se incluye la carpeta digcompedu-api-v1 con la funcion adicional integrada en:
+digcompedu-api-v1/internal/domain/evaluacion_docente.go
+
+IMPORTANTE:
+- No subir claves API al repositorio.
+- Configurar GROQ_API_KEY mediante variable de entorno si se ejecuta el proyecto.

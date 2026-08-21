@@ -1,0 +1,133 @@
+<!-- web/index.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluación de Competencias Digitales Docentes</title>
+    <style>
+        :root {
+            --color-primario: #2c3e50;
+            --color-acento: #3498db;
+            --color-fondo: #f5f7fa;
+            --color-exito: #27ae60;
+            --color-borde: #dfe6e9;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--color-fondo);
+            color: var(--color-primario);
+            line-height: 1.5;
+        }
+        header {
+            background: var(--color-primario);
+            color: white;
+            padding: 1.5rem 2rem;
+        }
+        header h1 { font-size: 1.4rem; font-weight: 600; }
+        header p { opacity: 0.8; font-size: 0.9rem; margin-top: 0.25rem; }
+        main {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        label { display: block; font-weight: 600; margin-bottom: 0.4rem; font-size: 0.9rem; }
+        input, select, textarea {
+            width: 100%;
+            padding: 0.6rem;
+            border: 1px solid var(--color-borde);
+            border-radius: 6px;
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+            font-family: inherit;
+        }
+        textarea { resize: vertical; min-height: 100px; }
+        button {
+            background: var(--color-acento);
+            color: white;
+            border: none;
+            padding: 0.7rem 1.4rem;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:hover { opacity: 0.9; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .resultado-area {
+            border: 1px solid var(--color-borde);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        .resultado-area h3 { font-size: 0.95rem; text-transform: capitalize; }
+        .nivel-badge {
+            display: inline-block;
+            background: var(--color-acento);
+            color: white;
+            padding: 0.15rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin: 0.3rem 0;
+        }
+        .nota-etica {
+            background: #fff8e1;
+            border-left: 3px solid #f39c12;
+            padding: 0.8rem 1rem;
+            font-size: 0.85rem;
+            border-radius: 4px;
+            margin-top: 1rem;
+        }
+        .loading { text-align: center; color: #888; padding: 1rem; }
+        .error { color: #c0392b; font-size: 0.9rem; margin-bottom: 1rem; }
+        #resultados { display: none; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Evaluación Formativa de Competencias Digitales Docentes</h1>
+        <p>Asistida por IA · Marco DigCompEdu · Prototipo — Cintana Alliance AI Challenge 2026</p>
+    </header>
+
+    <main>
+        <div class="card">
+            <form id="form-evaluacion">
+                <label for="nombre">Nombre del docente</label>
+                <input type="text" id="nombre" required placeholder="Ej. María Pérez">
+
+                <label for="disciplina">Disciplina</label>
+                <select id="disciplina" required>
+                    <option value="">Selecciona una disciplina</option>
+                    <option value="Informática">Informática</option>
+                    <option value="Automotriz">Automotriz</option>
+                    <option value="Otra">Otra</option>
+                </select>
+
+                <label for="descripcion">Describe la actividad o evaluación que diseñaste</label>
+                <textarea id="descripcion" required placeholder="Ej. Los estudiantes suben su código a un repositorio y reciben retroalimentación entre pares antes de la entrega final..."></textarea>
+
+                <button type="submit" id="btn-enviar">Analizar actividad</button>
+            </form>
+            <div id="error" class="error"></div>
+        </div>
+
+        <div id="loading" class="loading" style="display:none;">Analizando con IA...</div>
+
+        <div id="resultados" class="card">
+            <h2 style="margin-bottom: 1rem;">Resultado del análisis</h2>
+            <div id="areas-container"></div>
+            <div class="nota-etica" id="nota-etica"></div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
